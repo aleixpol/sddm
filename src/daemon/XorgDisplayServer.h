@@ -21,9 +21,11 @@
 #ifndef SDDM_XORGDISPLAYSERVER_H
 #define SDDM_XORGDISPLAYSERVER_H
 
+#include "Auth.h"
 #include "DisplayServer.h"
 
 class QProcess;
+class QLocalServer;
 
 namespace SDDM {
     class XorgDisplayServer : public DisplayServer {
@@ -46,15 +48,25 @@ namespace SDDM {
         bool start();
         void stop();
         void finished();
-        void setupDisplay();
 
     private:
+        QLocalServer *m_socketServer = nullptr;
+        QProcess *m_process = nullptr;
+        Auth *m_auth = nullptr;
+
         QString m_authPath;
         QString m_cookie;
 
-        QProcess *process { nullptr };
-
+        void createAuthFile();
         void changeOwner(const QString &fileName);
+
+    private slots:
+        void handleNewConnection();
+        void onRequestChanged();
+        void onSessionStarted(bool success);
+        void onHelperFinished(Auth::HelperExitStatus status);
+        void authInfo(const QString &message, Auth::Info info);
+        void authError(const QString &message, Auth::Error error);
     };
 }
 

@@ -44,7 +44,6 @@ namespace SDDM {
         virtual bool start() = 0;
         virtual void stop() = 0;
         virtual void finished() = 0;
-        virtual void setupDisplay() = 0;
 
     signals:
         void started();

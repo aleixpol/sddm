@@ -147,9 +147,6 @@ namespace SDDM {
         if (m_started)
             return;
 
-        // setup display
-        m_displayServer->setupDisplay();
-
         // log message
         qDebug() << "Display server started.";
 
