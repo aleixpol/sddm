@@ -43,10 +43,9 @@ namespace SDDM {
                                                                                                    "If property is set to none, numlock won't be changed\n"
                                                                                                    "NOTE: Currently ignored if autologin is enabled."));
         Entry(InputMethod,         QString,     QStringLiteral("qtvirtualkeyboard"),                   _S("Input method module"));
-        Entry(Namespaces,          QStringList, QStringList(),                                  _S("Comma-separated list of Linux namespaces for user session to enter"));
         Entry(DisplayServer,       QString,     _S("x11"),                                      _S("Which display server should be used.\n"
-                                                                                                   "NOTE: Wayland support is currently considered experimental.\n"
-                                                                                                   "Valid values are: x11, wayland."));
+                                                                                                   "Valid values are: x11, x11-user, wayland."));
+        Entry(Namespaces,          QStringList, QStringList(),                                  _S("Comma-separated list of Linux namespaces for user session to enter"));
         //  Name   Entries (but it's a regular class again)
         Section(Theme,
             Entry(ThemeDir,            QString,     _S(DATA_INSTALL_DIR "/themes"),             _S("Theme directory path"));

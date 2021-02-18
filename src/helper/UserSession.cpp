@@ -48,13 +48,20 @@ namespace SDDM {
 
     bool UserSession::start() {
         QProcessEnvironment env = qobject_cast<HelperApp*>(parent())->session()->processEnvironment();
+        qDebug() << "running session" << env.toStringList();
         if (env.value(QStringLiteral("XDG_SESSION_CLASS")) == QLatin1String("greeter")) {
             qDebug() << "Starting greeter session:" << m_path << m_compositor;
             QProcess::start(QStringLiteral(LIBEXEC_INSTALL_DIR "/sddm-helper-start-wayland"), {m_compositor, m_path});
         } else if (env.value(QStringLiteral("XDG_SESSION_TYPE")) == QLatin1String("x11")) {
-            const QString cmd = QStringLiteral("%1 \"%2\"").arg(mainConfig.X11.SessionCommand.get()).arg(m_path);
-            qInfo() << "Starting:" << cmd;
-            QProcess::start(cmd);
+            if (env.value(QStringLiteral("XORG_RUN_AS_USER_OK")).toInt()) {
+                const QString cmd = m_compositor + QStringLiteral(" --session ") + m_path;
+                qDebug() << "Starting rootless x11 session:" << m_path << m_compositor;
+                QProcess::start(cmd);
+            } else {
+                const QString cmd = QStringLiteral("%1 \"%2\"").arg(mainConfig.X11.SessionCommand.get()).arg(m_path);
+                qInfo() << "Starting:" << cmd;
+                QProcess::start(cmd);
+            }
         } else if (env.value(QStringLiteral("XDG_SESSION_TYPE")) == QLatin1String("wayland")) {
             const QString cmd = QStringLiteral("%1 %2").arg(mainConfig.Wayland.SessionCommand.get()).arg(m_path);
             qInfo() << "Starting:" << cmd;
@@ -314,37 +321,37 @@ namespace SDDM {
         }
 
         // set X authority for X11 sessions only
-        if (sessionType == QLatin1String("x11")) {
-            QString cookie = qobject_cast<HelperApp*>(parent())->cookie();
-            if (!cookie.isEmpty()) {
-                QString file = processEnvironment().value(QStringLiteral("XAUTHORITY"));
-                QString display = processEnvironment().value(QStringLiteral("DISPLAY"));
-                qDebug() << "Adding cookie to" << file;
-
-                // create the path
-                QFileInfo finfo(file);
-                QDir().mkpath(finfo.absolutePath());
-
-                QFile file_handler(file);
-                file_handler.open(QIODevice::Append);
-                file_handler.close();
-
-                QString cmd = QStringLiteral("%1 -f %2 -q").arg(mainConfig.X11.XauthPath.get()).arg(file);
-
-                // execute xauth
-                FILE *fp = popen(qPrintable(cmd), "w");
-
-                // check file
-                if (!fp)
-                    return;
-                fprintf(fp, "remove %s\n", qPrintable(display));
-                fprintf(fp, "add %s . %s\n", qPrintable(display), qPrintable(cookie));
-                fprintf(fp, "exit\n");
-
-                // close pipe
-                pclose(fp);
-            }
-        }
+//         if (sessionType == QLatin1String("x11")) {
+//             QString cookie = qobject_cast<HelperApp*>(parent())->cookie();
+//             if (!cookie.isEmpty()) {
+//                 QString file = processEnvironment().value(QStringLiteral("XAUTHORITY"));
+//                 QString display = processEnvironment().value(QStringLiteral("DISPLAY"));
+//                 qDebug() << "Adding cookie to" << file;
+//
+//                 // create the path
+//                 QFileInfo finfo(file);
+//                 QDir().mkpath(finfo.absolutePath());
+//
+//                 QFile file_handler(file);
+//                 file_handler.open(QIODevice::Append);
+//                 file_handler.close();
+//
+//                 QString cmd = QStringLiteral("%1 -f %2 -q").arg(mainConfig.X11.XauthPath.get()).arg(file);
+//
+//                 // execute xauth
+//                 FILE *fp = popen(qPrintable(cmd), "w");
+//
+//                 // check file
+//                 if (!fp)
+//                     return;
+//                 fprintf(fp, "remove %s\n", qPrintable(display));
+//                 fprintf(fp, "add %s . %s\n", qPrintable(display), qPrintable(cookie));
+//                 fprintf(fp, "exit\n");
+//
+//                 // close pipe
+//                 pclose(fp);
+//             }
+//         }
 
         qDebug() << "See logs for" << program() << "in" << sessionLog;
     }

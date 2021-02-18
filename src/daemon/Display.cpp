@@ -147,9 +147,6 @@ namespace SDDM {
         if (m_started)
             return;
 
-        // setup display
-        m_displayServer->setupDisplay();
-
         // log message
         qDebug() << "Display server started.";
 
@@ -187,7 +184,7 @@ namespace SDDM {
             m_greeter->setAuthPath(xorgServer()->authPath());
         m_greeter->setSocket(m_socketServer->socketAddress());
         m_greeter->setTheme(findGreeterTheme());
-        m_greeter->setCompositor(mainConfig.Wayland.CompositorCommand.get());
+        m_greeter->setCompositor(m_displayServer->userCompositorCommand());
 
         // start greeter
         m_greeter->start();
@@ -332,7 +329,7 @@ namespace SDDM {
 
         env.insert(QStringLiteral("PATH"), mainConfig.Users.DefaultPath.get());
         if (session.xdgSessionType() == QLatin1String("x11"))
-            env.insert(QStringLiteral("DISPLAY"), name());
+            env.insert(QStringLiteral("DISPLAY"), xorgServer()->display());
         env.insert(QStringLiteral("XDG_SEAT_PATH"), daemonApp->displayManager()->seatPath(seat()->name()));
         env.insert(QStringLiteral("XDG_SESSION_PATH"), daemonApp->displayManager()->sessionPath(QStringLiteral("Session%1").arg(daemonApp->newSessionId())));
         env.insert(QStringLiteral("DESKTOP_SESSION"), session.desktopSession());
@@ -341,6 +338,11 @@ namespace SDDM {
         env.insert(QStringLiteral("XDG_SESSION_TYPE"), session.xdgSessionType());
         env.insert(QStringLiteral("XDG_SEAT"), seat()->name());
         env.insert(QStringLiteral("XDG_SESSION_DESKTOP"), session.desktopNames());
+
+        if (session.xdgSessionType() == QLatin1String("x11") && mainConfig.DisplayServer.get() == QLatin1String("wayland")) {
+            env.insert(QStringLiteral("XORG_RUN_AS_USER_OK"), QStringLiteral("1"));
+            m_auth->setCompositor(xorgServer()->userCompositorCommand());
+        }
 
         m_auth->insertEnvironment(env);
 
@@ -435,7 +437,6 @@ namespace SDDM {
         if (!m_xorgDisplayServer) {
             m_xorgDisplayServer = new XorgDisplayServer(this);
             m_xorgDisplayServer->start();
-            connect(m_xorgDisplayServer, &DisplayServer::started, m_xorgDisplayServer, &DisplayServer::setupDisplay);
             connect(this, &Display::stopped, m_xorgDisplayServer, &XorgDisplayServer::stop);
         }
         return m_xorgDisplayServer;

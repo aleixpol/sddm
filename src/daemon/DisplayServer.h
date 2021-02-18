@@ -40,11 +40,12 @@ namespace SDDM {
 
         virtual QString sessionType() const = 0;
 
+        virtual QString userCompositorCommand() const = 0;
+
     public slots:
         virtual bool start() = 0;
         virtual void stop() = 0;
         virtual void finished() = 0;
-        virtual void setupDisplay() = 0;
 
     signals:
         void started();
