@@ -42,6 +42,7 @@ namespace SDDM {
 
         const QString &cookie() const;
 
+        QString userCompositorCommand() const;
         bool addCookie(const QString &file);
 
     public slots:
@@ -56,6 +57,7 @@ namespace SDDM {
 
         QString m_authPath;
         QString m_cookie;
+        QStringList m_args;
 
         void createAuthFile();
         void changeOwner(const QString &fileName);

@@ -31,7 +31,6 @@
 #include <QDebug>
 #include <QFile>
 #include <QProcess>
-#include <QUuid>
 
 #include <pwd.h>
 #include <unistd.h>
@@ -91,6 +90,11 @@ void WaylandDisplayServer::stop()
 
 void WaylandDisplayServer::finished()
 {
+}
+
+QString WaylandDisplayServer::userCompositorCommand() const
+{
+    return mainConfig.Wayland.CompositorCommand.get();
 }
 
 }

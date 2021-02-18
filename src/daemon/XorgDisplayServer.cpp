@@ -70,10 +70,9 @@ namespace SDDM {
         return m_cookie;
     }
 
-<<<<<<< HEAD
     bool XorgDisplayServer::addCookie(const QString &file) {
         // log message
-        qDebug() << "Adding cookie to" << file;
+        qDebug() << "Adding cookie to" << file << "for" << m_display;
 
         // Touch file
         QFile file_handler(file);
@@ -81,7 +80,6 @@ namespace SDDM {
         file_handler.close();
 
         QString cmd = QStringLiteral("%1 -f %2 -q").arg(mainConfig.X11.XauthPath.get()).arg(file);
-
         // execute xauth
         FILE *fp = popen(qPrintable(cmd), "w");
 
@@ -96,97 +94,10 @@ namespace SDDM {
         return pclose(fp) == 0;
     }
 
-=======
->>>>>>> b1ba4e7 (WIP Xorg user session)
     bool XorgDisplayServer::start() {
         // check flag
         if (m_started)
             return false;
-
-<<<<<<< HEAD
-        // create process
-        process = new QProcess(this);
-
-        // delete process on finish
-        connect(process, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished), this, &XorgDisplayServer::finished);
-
-        // log message
-        qDebug() << "Display server starting...";
-
-        // generate auth file.
-        // For the X server's copy, the display number doesn't matter.
-        // An empty file would result in no access control!
-        m_display = QStringLiteral(":0");
-        if(!addCookie(m_authPath)) {
-            qCritical() << "Failed to write xauth file";
-            return false;
-        }
-
-        if (daemonApp->testing()) {
-            QStringList args;
-            QDir x11socketDir(QStringLiteral("/tmp/.X11-unix"));
-            int display = 100;
-            while (x11socketDir.exists(QStringLiteral("X%1").arg(display))) {
-                ++display;
-            }
-            m_display = QStringLiteral(":%1").arg(display);
-            args << m_display << QStringLiteral("-auth") << m_authPath << QStringLiteral("-br") << QStringLiteral("-noreset") << QStringLiteral("-screen") << QStringLiteral("800x600");
-            process->start(mainConfig.X11.XephyrPath.get(), args);
-
-
-            // wait for display server to start
-            if (!process->waitForStarted()) {
-                // log message
-                qCritical() << "Failed to start display server process.";
-
-                // return fail
-                return false;
-            }
-            emit started();
-        } else {
-            // set process environment
-            QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
-            env.insert(QStringLiteral("XCURSOR_THEME"), mainConfig.Theme.CursorTheme.get());
-            process->setProcessEnvironment(env);
-            process->setProcessChannelMode(QProcess::ForwardedChannels);
-
-            //create pipe for communicating with X server
-            //0 == read from X, 1== write to from X
-            int pipeFds[2];
-            if (pipe(pipeFds) != 0) {
-                qCritical("Could not create pipe to start X server");
-            }
-
-            // start display server
-            QStringList args = mainConfig.X11.ServerArguments.get().split(QLatin1Char(' '), QString::SkipEmptyParts);
-            args << QStringLiteral("-auth") << m_authPath
-                 << QStringLiteral("-background") << QStringLiteral("none")
-                 << QStringLiteral("-noreset")
-                 << QStringLiteral("-displayfd") << QString::number(pipeFds[1])
-                 << QStringLiteral("-seat") << displayPtr()->seat()->name();
-
-            if (displayPtr()->seat()->name() == QLatin1String("seat0")) {
-                args << QStringLiteral("vt%1").arg(displayPtr()->terminalId());
-            }
-            qDebug() << "Running:"
-                     << qPrintable(mainConfig.X11.ServerPath.get())
-                     << qPrintable(args.join(QLatin1Char(' ')));
-            process->start(mainConfig.X11.ServerPath.get(), args);
-
-            // wait for display server to start
-            if (!process->waitForStarted()) {
-                // log message
-                qCritical() << "Failed to start display server process.";
-
-                // return fail
-                close(pipeFds[0]);
-                return false;
-            }
-
-            // close the other side of pipe in our process, otherwise reading
-            // from it may stuck even X server exit.
-            close(pipeFds[1]);
-=======
         // Start socket server
         if (m_socketServer)
             m_socketServer->deleteLater();
@@ -197,16 +108,14 @@ namespace SDDM {
         changeOwner(m_socketServer->fullServerName());
 
         // Command arguments
-        QStringList args;
-        args << QStringLiteral("--seat") << displayPtr()->seat()->name()
-             << QStringLiteral("--vt") << QString::number(displayPtr()->terminalId())
-             << QStringLiteral("--socket") << m_socketServer->fullServerName()
-             << QStringLiteral("--auth") << m_authPath;
+        m_args = QStringList { QStringLiteral("--seat"), displayPtr()->seat()->name()
+                             , QStringLiteral("--vt"),  QString::number(displayPtr()->terminalId())
+                             , QStringLiteral("--socket"),  m_socketServer->fullServerName()
+                             , QStringLiteral("--auth"),  m_authPath };
         if (daemonApp->testing())
-            args << QStringLiteral("--test-mode");
->>>>>>> b1ba4e7 (WIP Xorg user session)
+            m_args << QStringLiteral("--test-mode");
 
-        qInfo("Starting X11 server...");
+        qInfo() << "Starting X11 server..." << mainConfig.DisplayServer.get();
 
         // Run helper
         if (mainConfig.DisplayServer.get() == QStringLiteral("x11")) {
@@ -216,59 +125,14 @@ namespace SDDM {
             connect(m_process, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
                     this, &XorgDisplayServer::finished);
 
-            m_process->start(QStringLiteral(LIBEXEC_INSTALL_DIR "/sddm-x11-helper"), args);
+            m_process->start(QStringLiteral(LIBEXEC_INSTALL_DIR "/sddm-x11-helper"), m_args);
             if (!m_process->waitForStarted()) {
                 qCritical("Failed to start display server");
                 return false;
             }
-        } else if (mainConfig.DisplayServer.get() == QStringLiteral("x11-user")) {
-            if (m_auth)
-                m_auth->deleteLater();
-            m_auth = new Auth(this);
-            m_auth->setVerbose(true);
-            m_auth->setUser(QStringLiteral("sddm"));
-            m_auth->setGreeter(true);
-            connect(m_auth, &Auth::requestChanged, this, &XorgDisplayServer::onRequestChanged);
-            connect(m_auth, &Auth::sessionStarted, this, &XorgDisplayServer::onSessionStarted);
-            connect(m_auth, &Auth::finished, this, &XorgDisplayServer::onHelperFinished);
-            connect(m_auth, &Auth::info, this, &XorgDisplayServer::authInfo);
-            connect(m_auth, &Auth::error, this, &XorgDisplayServer::authError);
-
-            QStringList cmd;
-            cmd << QStringLiteral(LIBEXEC_INSTALL_DIR "/sddm-x11-helper")
-                << args;
-
-            QProcessEnvironment env;
-            env.insert(QStringLiteral("XDG_SEAT"), displayPtr()->seat()->name());
-            env.insert(QStringLiteral("XDG_SEAT_PATH"), daemonApp->displayManager()->seatPath(displayPtr()->seat()->name()));
-            env.insert(QStringLiteral("XDG_SESSION_PATH"), daemonApp->displayManager()->sessionPath(QStringLiteral("Session%1").arg(daemonApp->newSessionId())));
-            env.insert(QStringLiteral("XDG_VTNR"), QString::number(displayPtr()->terminalId()));
-            env.insert(QStringLiteral("XDG_SESSION_CLASS"), QStringLiteral("greeter"));
-            env.insert(QStringLiteral("XDG_SESSION_TYPE"), QStringLiteral("x11"));
-            env.insert(QStringLiteral("XORG_RUN_AS_USER_OK"), QStringLiteral("1"));
-            m_auth->insertEnvironment(env);
-
-            m_auth->setSession(cmd.join(QLatin1Char(' ')));
-            m_auth->start();
+        } else {
+            //Should be using rootless xorg
         }
-
-<<<<<<< HEAD
-        // The file is also used by the greeter, which does care about the
-        // display number. Write the proper entry, if it's different.
-        if(m_display != QStringLiteral(":0")) {
-            if(!addCookie(m_authPath)) {
-                qCritical() << "Failed to write xauth file";
-                return false;
-            }
-        }
-        changeOwner(m_authPath);
-
-        // set flag
-        m_started = true;
-
-        // return success
-=======
->>>>>>> b1ba4e7 (WIP Xorg user session)
         return true;
     }
 
@@ -347,33 +211,13 @@ namespace SDDM {
             m_cookie[i] = digits[dis(gen)];
     }
 
-    void XorgDisplayServer::addCookie(const QString &fileName)
-    {
-        qDebug() << "Adding cookie to" << fileName;
-
-        // Touch file
-        QFile fileHandler(fileName);
-        fileHandler.open(QIODevice::Append);
-        fileHandler.close();
-
-        // Run xauth
-        QString cmd = QStringLiteral("%1 -f %2 -q").arg(mainConfig.X11.XauthPath.get()).arg(fileName);
-        FILE *fp = popen(qPrintable(cmd), "w");
-        if (!fp)
-            return;
-        fprintf(fp, "remove %s\n", qPrintable(m_display));
-        fprintf(fp, "add %s . %s\n", qPrintable(m_display), qPrintable(m_cookie));
-        fprintf(fp, "exit\n");
-        pclose(fp);
-    }
-
     void XorgDisplayServer::changeOwner(const QString &fileName)
     {
         // Change the owner and group of the auth file to the sddm user
-        struct passwd *pw = getpwnam("sddm");
+        struct passwd *pw = getpwnam("test");
         if (pw) {
             if (chown(qPrintable(fileName), pw->pw_uid, pw->pw_gid) == -1)
-                qWarning() << "Failed to change owner of the auth file.";
+                qWarning() << "Failed to change owner of the auth file." << fileName;
         } else {
             qWarning() << "Failed to find the sddm user. Owner of the auth file will not be changed.";
         }
@@ -431,5 +275,15 @@ namespace SDDM {
     {
         Q_UNUSED(error)
         qWarning("Error from X11 server: %s", qPrintable(message));
+    }
+
+    QString XorgDisplayServer::userCompositorCommand() const
+    {
+        QString cmd;
+        if (mainConfig.DisplayServer.get() == QStringLiteral("x11-user") || mainConfig.DisplayServer.get() == QStringLiteral("wayland")) {
+            cmd = QStringLiteral(LIBEXEC_INSTALL_DIR "/sddm-x11-helper ") + m_args.join(QLatin1Char(' '));
+        }
+        qDebug() << "userCompositorCommand" << cmd << mainConfig.DisplayServer.get();
+        return cmd;
     }
 }

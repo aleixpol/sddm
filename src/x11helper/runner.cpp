@@ -63,8 +63,9 @@ void Runner::setSocketName(const QString &name)
     m_socketName = name;
 
     m_socket->connectToServer(m_socketName, QIODevice::ReadWrite | QIODevice::Unbuffered);
-    if (!m_socket->waitForConnected(2500))
-        qCritical("Failed to connect to the daemon: %s", qPrintable(m_socket->errorString()));
+    if (!m_socket->waitForConnected(2500)) {
+        qCritical("Failed to connect to the daemon. %s: %s", qPrintable(m_socketName), qPrintable(m_socket->errorString()));
+    }
 }
 
 bool Runner::isTestMode() const
@@ -128,6 +129,7 @@ bool Runner::start()
         m_process->deleteLater();
 
     m_process = new QProcess(this);
+//     m_process->setProcessChannelMode(QProcess::ForwardedChannels);
     connect(m_process, &QProcess::started,
             this, &Runner::started);
     connect(m_process, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
@@ -154,6 +156,7 @@ bool Runner::start()
         // Set process environment
         QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
         env.insert(QStringLiteral("XCURSOR_THEME"), SDDM::mainConfig.Theme.CursorTheme.get());
+        env.insert(QStringLiteral("XORG_RUN_AS_USER_OK"), QStringLiteral("1"));
         m_process->setProcessEnvironment(env);
 
         // Create pipe for communicating with X server
@@ -165,11 +168,12 @@ bool Runner::start()
         }
 
         // Start display server
-        QStringList args = SDDM::mainConfig.X11.ServerArguments.get().split(QLatin1Char(' '), QString::SkipEmptyParts);
+        QStringList args = SDDM::mainConfig.X11.ServerArguments.get().split(QLatin1Char(' '), Qt::SkipEmptyParts);
         args << QStringLiteral("-auth") << m_authPath
              << QStringLiteral("-background") << QStringLiteral("none")
              << QStringLiteral("-noreset")
              << QStringLiteral("-keeptty")
+             << QStringLiteral("-verbose") << QStringLiteral("7")
              << QStringLiteral("-displayfd") << QString::number(pipeFds[1])
                 << QStringLiteral("-seat") << m_seat;
         if (m_seat == QLatin1String("seat0"))
@@ -194,10 +198,11 @@ bool Runner::start()
             close(pipeFds[0]);
             return false;
         }
+        qDebug() << "started" << readPipe.waitForReadyRead(1000);
         QByteArray displayNumber = readPipe.readLine();
         if (displayNumber.size() < 2) {
             // X server gave nothing (or a whitespace)
-            qCritical("Failed to read display number from pipe");
+            qCritical() << "Failed to read display number from pipe" << displayNumber << m_process->state() << m_process->program();
             close(pipeFds[0]);
             return false;
         }
@@ -238,6 +243,9 @@ void Runner::started()
     // Create display setup script process
     QProcess *displayScript = new QProcess();
 
+    // Create session process
+    QProcess *session = new QProcess();
+
     // Set process environment
     QProcessEnvironment env;
     env.insert(QStringLiteral("DISPLAY"), m_display);
@@ -248,6 +256,7 @@ void Runner::started()
     env.insert(QStringLiteral("XCURSOR_THEME"), SDDM::mainConfig.Theme.CursorTheme.get());
     setCursor->setProcessEnvironment(env);
     displayScript->setProcessEnvironment(env);
+    session->setProcessEnvironment(env);
 
     qDebug() << "Setting default cursor";
     setCursor->start(QStringLiteral("xsetroot -cursor_name left_ptr"));
@@ -269,11 +278,15 @@ void Runner::started()
     // Delete displayScript on finish
     connect(displayScript, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
             displayScript, &QProcess::deleteLater);
+    connect(session, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
+            session, &QProcess::deleteLater);
 
     // Wait for finished
     if (!displayScript->waitForFinished(30000))
         displayScript->kill();
 
+    session->start(m_session);
+    Q_ASSERT(session->waitForStarted());
     // Reload config if needed
     SDDM::mainConfig.load();
 }

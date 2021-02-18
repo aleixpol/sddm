@@ -366,7 +366,10 @@ namespace SDDM {
             args << QStringLiteral("--compositor") << d->compositor;
         if (d->greeter)
             args << QStringLiteral("--greeter");
-        d->child->start(QStringLiteral("%1/sddm-helper").arg(QStringLiteral(LIBEXEC_INSTALL_DIR)), args);
+        d->child->setProgram(QStringLiteral("%1/sddm-helper").arg(QStringLiteral(LIBEXEC_INSTALL_DIR)));
+        d->child->setArguments(args);
+        qDebug() << "Auth: starting..." << d->child->program() << d->child->arguments();
+        d->child->start();
     }
 
     void Auth::stop() {

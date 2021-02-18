@@ -49,6 +49,10 @@ public:
     QString authPath() const;
     void setAuthPath(const QString &path);
 
+    void setSession(const QString &session) {
+        m_session = session;
+    }
+
     bool start();
     void stop();
 
@@ -59,6 +63,7 @@ private:
     QString m_seat;
     int m_terminalId = 0;
     QString m_authPath;
+    QString m_session;
 
     QLocalSocket *m_socket = nullptr;
     QProcess *m_process = nullptr;

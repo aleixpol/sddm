@@ -59,6 +59,11 @@ int main(int argc, char *argv[])
                                 TR("path"));
     parser.addOption(authFileOption);
 
+    QCommandLineOption sessionOption(QStringLiteral("session"),
+                                TR("Session command"),
+                                TR("command"));
+    parser.addOption(sessionOption);
+
     parser.process(app);
 
     if (!parser.isSet(socketOption)) {
@@ -91,6 +96,7 @@ int main(int argc, char *argv[])
     runner->setSeat(parser.value(seatOption));
     runner->setTerminalId(vt);
     runner->setAuthPath(parser.value(authFileOption));
+    runner->setSession(parser.value(sessionOption));
     if (!runner->start()) {
         runner->stop();
         return 1;

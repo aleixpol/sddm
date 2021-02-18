@@ -39,12 +39,12 @@ namespace SDDM
         const QString &display() const;
 
         QString sessionType() const override;
+        QString userCompositorCommand() const override;
 
     public slots:
         bool start() override;
         void stop() override;
         void finished() override;
-        void setupDisplay() override {}
     };
 }
 
