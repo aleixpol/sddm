@@ -413,8 +413,12 @@ namespace SDDM {
                 stateConfig.Last.Session.setDefault();
             stateConfig.save();
 
-            if (m_socket)
+            if (m_socket) {
                 emit loginSucceeded(m_socket);
+
+                //Give some time to the session to log in, to minimise the flickering
+                QTimer::singleShot(2000, m_greeter, &Greeter::stop);
+            }
         } else if (m_socket) {
             qDebug() << "Authentication failure";
             emit loginFailed(m_socket);
@@ -440,14 +444,18 @@ namespace SDDM {
     }
 
     void Display::slotHelperFinished(Auth::HelperExitStatus status) {
-        // Restart the greeter and display server if sddm-helper exited
-        // with an internal error or a session error, otherwise we just
-        // want to reuse the existing so we jump to its VT
-        if (status == Auth::HELPER_SESSION_ERROR ||
-                status == Auth::HELPER_OTHER_ERROR)
+        // Don't restart the display server unless sddm-helper exited
+        // with an internal error or the user session finished successfully,
+        // we want to avoid greeter from restarting when an authentication
+        // error happens (in this case we want to show the message from the
+        // greeter
+        if (status != Auth::HELPER_AUTH_ERROR)
             stop();
-        else
-            VirtualTerminal::jumpToVt(m_terminalId, true);
+
+        // when the logged in session closes, start the greeter again
+        if (m_auth->user() != QLatin1String("sddm")) {
+            m_greeter->start();
+        }
     }
 
     void Display::slotRequestChanged() {
