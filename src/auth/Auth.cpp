@@ -132,6 +132,7 @@ namespace SDDM {
         if (langEmpty)
             env.insert(QStringLiteral("LANG"), QStringLiteral("C"));
         child->setProcessEnvironment(env);
+        child->setProcessChannelMode(QProcess::ForwardedOutputChannel);
         connect(child, QOverload<int,QProcess::ExitStatus>::of(&QProcess::finished), this, &Auth::Private::childExited);
         connect(child, QOverload<QProcess::ProcessError>::of(&QProcess::error), this, &Auth::Private::childError);
         connect(request, &AuthRequest::finished, this, &Auth::Private::requestFinished);
