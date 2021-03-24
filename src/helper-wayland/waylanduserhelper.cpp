@@ -18,6 +18,7 @@
 ***************************************************************************/
 
 #include <QCoreApplication>
+#include <QDebug>
 
 #include "waylandsocketwatcher.h"
 #include "waylanduserhelper.h"
@@ -160,6 +161,12 @@ bool WaylandUserHelper::startClient()
     if (!startProcess(m_clientCmd, env, &m_clientProcess))
         return false;
 
+    connect(m_clientProcess, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
+        this, [this] (int code, QProcess::ExitStatus status) {
+        qInfo() << "Session finished with code:" << code << status;
+        m_serverProcess->terminate();
+        QCoreApplication::instance()->quit();
+    });
     return true;
 }
 
