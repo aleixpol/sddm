@@ -88,6 +88,11 @@ namespace SDDM {
         if (m_started)
             return false;
 
+        if (!m_display) {
+            // we might not have a display when autologging in
+            return true;
+        }
+
         // themes
         QString xcursorTheme = mainConfig.Theme.CursorTheme.get();
         if (m_themeConfig->contains(QLatin1String("cursorTheme")))
@@ -244,6 +249,7 @@ namespace SDDM {
 
         // log message
         qDebug() << "Greeter stopping...";
+        m_started = false;
 
         if (daemonApp->testing()) {
             // terminate process
